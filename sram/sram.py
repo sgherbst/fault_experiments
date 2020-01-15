@@ -144,6 +144,7 @@ def run_test(target='system-verilog', simulator='iverilog'):
     kwargs = {}
     kwargs['target'] = target
     kwargs['simulator'] = simulator
+    kwargs['directory'] = BUILD_DIR
     # kwargs['disp_type'] = 'realtime'
     if target in {'spice', 'verilog-ams'}:
         kwargs['vsup'] = VDD
