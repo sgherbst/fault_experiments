@@ -12,11 +12,13 @@ import magma as m
 import fault
 
 class RamCfg:
-    def __init__(self, num_words=16, word_size=1, vdd=3.3, tech_name='scn4m_subm'):
+    def __init__(self, num_words=16, word_size=1, vdd=3.3,
+                 tech_name='scn4m_subm', clk_per=10e-9):
         self.num_words = num_words
         self.word_size = word_size
         self.vdd = vdd
         self.tech_name = tech_name
+        self.clk_per = clk_per
         self.output_path = 'temp'
         self.output_name = f'sram_{self.word_size}_{self.num_words}_{self.tech_name}'
         self.build_dir = Path(__file__).resolve().parent / 'build'
@@ -83,43 +85,43 @@ def run_test(ram_cfg, target='system-verilog', simulator='iverilog'):
         t.poke(dut.din0, value)
         t.poke(dut.addr0, addr)
         t.poke(dut.web0, 0)
-        t.delay(1e-9)
+        t.delay(0.1 * ram_cfg.clk_per)
         # produce clock rising edge and obey hold time
         t.poke(dut.clk0, 1)
-        t.delay(5e-9)
+        t.delay(0.5 * ram_cfg.clk_per)
         t.poke(dut.din0, 0)
         t.poke(dut.addr0, 0)
         t.poke(dut.web0, 1)
         # produce clock falling edge
         t.poke(dut.clk0, 0)
-        t.delay(4e-9)
+        t.delay(0.4 * ram_cfg.clk_per)
 
     # declare read function
     def check(addr, value):
         # setup data, address, and write enable
         t.poke(dut.addr0, addr)
         t.poke(dut.web0, 1)
-        t.delay(1e-9)
+        t.delay(0.1 * ram_cfg.clk_per)
         # produce clock rising edge and obey hold time
         t.poke(dut.clk0, 1)
-        t.delay(5e-9)
+        t.delay(0.5 * ram_cfg.clk_per)
         t.poke(dut.addr0, 0)
         t.poke(dut.web0, 1)
         # produce clock falling edge
         t.poke(dut.clk0, 0)
-        t.delay(4e-9)
+        t.delay(0.4 * ram_cfg.clk_per)
         # check output
         t.expect(dut.dout0, value)
 
     # initialize all voltages to zero
     t.zero_inputs()
-    t.delay(25e-9)
+    t.delay(5 * ram_cfg.clk_per)
 
     # bring up supply while de-asserting write enable
     if target in {'spice', 'verilog-ams'}:
         t.poke(dut.vdd, 1)
     t.poke(dut.web0, 1)
-    t.delay(25e-9)
+    t.delay(5 * ram_cfg.clk_per)
 
     # generate test data
     stim = [(k, fault.random_bv(ram_cfg.word_size))
@@ -158,12 +160,13 @@ def run_test(ram_cfg, target='system-verilog', simulator='iverilog'):
 def main():
     # parse command line arguments
     parser = ArgumentParser()
-    parser.add_argument('--target', type=str, default='system-verilog')
-    parser.add_argument('--simulator', type=str, default=None)
-    parser.add_argument('--num_words', type=int, default=16)
-    parser.add_argument('--word_size', type=int, default=1)
-    parser.add_argument('--vdd', type=float, default=3.3)
-    parser.add_argument('--tech_name', type=str, default='scn4m_subm')
+    parser.add_argument('--target', type=str, default='system-verilog', help='Type of target to use.  Options are "system-verilog", "verilog-ams", and "spice".')
+    parser.add_argument('--simulator', type=str, default=None, help='Simulator to use.  Options are "ncsim", "vcs", "iverilog", "vivado", "ngspice", "hspice", and "spectre".  Note that not all target/simulator pairs are valid.')
+    parser.add_argument('--num_words', type=int, default=16, help='Number of words in the SRAM array.')
+    parser.add_argument('--word_size', type=int, default=1, help='Number of bits in each SRAM word.')
+    parser.add_argument('--vdd', type=float, default=3.3, help='VDD voltage.')
+    parser.add_argument('--tech_name', type=str, default='scn4m_subm', help='Name of the process technology.')
+    parser.add_argument('--clk_per', type=float, default=10e-9, help='Period of the clock waveform used in testing (seconds).')
     args = parser.parse_args()
 
     # set defaults
@@ -177,7 +180,8 @@ def main():
 
     # create the RAM configuration
     ram_cfg = RamCfg(num_words=args.num_words, word_size=args.word_size,
-                     vdd=args.vdd, tech_name=args.tech_name)
+                     vdd=args.vdd, tech_name=args.tech_name,
+                     clk_per=args.clk_per)
 
     # build the OpenRAM design
     build_design(ram_cfg)
