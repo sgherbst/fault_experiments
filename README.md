@@ -1,0 +1,1 @@
+This repository contains various experiments run using **fault**, a Python-based tool for running target- and simulator-agnostic tests of circuit designs.  See READMEs in the subfolders for details on the specific experiments.
