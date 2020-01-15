@@ -36,3 +36,7 @@ Word size: 1
 Runtime:   0.145 s
 ***********************************
 ```
+
+# Configuration
+
+Full command-line options are shown by running `python sram/sram.py -h`, but two of the most common options used are **--num_words**, the number of words in the SRAM array, and **--word_size**, the number of bits in each word stored in the SRAM.  By changing both parameters the scale of the SRAM may be adjusted.
