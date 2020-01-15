@@ -11,43 +11,38 @@ from pathlib import Path
 import magma as m
 import fault
 
-# user-editable parameters
-NUM_WORDS = 16
-WORD_SIZE = 1
-VDD = 3.3
-TECH_NAME = 'scn4m_subm'
-OUTPUT_PATH = 'temp'
-OUTPUT_NAME = f'sram_{WORD_SIZE}_{NUM_WORDS}_{TECH_NAME}'
-# do not edit anything below this line...
+class RamCfg:
+    def __init__(self, num_words=16, word_size=1, vdd=3.3, tech_name='scn4m_subm'):
+        self.num_words = num_words
+        self.word_size = word_size
+        self.vdd = vdd
+        self.tech_name = tech_name
+        self.output_path = 'temp'
+        self.output_name = f'sram_{self.word_size}_{self.num_words}_{self.tech_name}'
+        self.build_dir = Path(__file__).resolve().parent / 'build'
+        self.openram_home = Path(os.environ['OPENRAM_HOME'])
+        self.openram_tech = Path(os.environ['OPENRAM_TECH'])
+        self.model_dir = self.openram_tech / self.tech_name / 'models' / 'nom'
+        self.spice_files = [self.model_dir / 'nmos.sp',
+                            self.model_dir / 'pmos.sp',
+                            self.build_dir / self.output_path / f'{self.output_name}.sp']
+        self.vlog_files = [self.build_dir / self.output_path / f'{self.output_name}.v']
 
-# file locations
-THIS_DIR = Path(__file__).resolve().parent
-BUILD_DIR = THIS_DIR / 'build'
-OPENRAM_HOME = Path(os.environ['OPENRAM_HOME'])
-OPENRAM_TECH = Path(os.environ['OPENRAM_TECH'])
-MODEL_DIR = OPENRAM_TECH / TECH_NAME / 'models' / 'nom'
-
-# define file locations
-SPICE_FILES = [MODEL_DIR / 'nmos.sp',
-               MODEL_DIR / 'pmos.sp',
-               BUILD_DIR / OUTPUT_PATH / f'{OUTPUT_NAME}.sp']
-VLOG_FILES = [BUILD_DIR / OUTPUT_PATH / f'{OUTPUT_NAME}.v']
-
-def build_design():
-    BUILD_DIR.mkdir(parents=True, exist_ok=True)
+def build_design(ram_cfg):
+    ram_cfg.build_dir.mkdir(parents=True, exist_ok=True)
 
     # generate file for OpenRAM
-    config_path = BUILD_DIR / 'myconfig.py'
+    config_path = ram_cfg.build_dir / 'myconfig.py'
     with open(config_path, 'w') as f:
         f.write(f'''\
-word_size = {WORD_SIZE}
-num_words = {NUM_WORDS}
-tech_name = "{TECH_NAME}"
+word_size = {ram_cfg.word_size}
+num_words = {ram_cfg.num_words}
+tech_name = "{ram_cfg.tech_name}"
 process_corners = ["TT"]
-supply_voltages = [ {VDD} ]
+supply_voltages = [ {ram_cfg.vdd} ]
 temperatures = [ 25 ]
-output_path = "{OUTPUT_PATH}"
-output_name = "{OUTPUT_NAME}"
+output_path = "{ram_cfg.output_path}"
+output_name = "{ram_cfg.output_name}"
 drc_name = "magic"
 lvs_name = "netgen"
 pex_name = "magic"\
@@ -56,16 +51,16 @@ pex_name = "magic"\
     # call OpenRAM
     cmd = []
     cmd += ['python']
-    cmd += [str(OPENRAM_HOME / 'openram.py')]
+    cmd += [str(ram_cfg.openram_home / 'openram.py')]
     cmd += [str(config_path.stem)]
-    subprocess.run(cmd, cwd=BUILD_DIR)
+    subprocess.run(cmd, cwd=ram_cfg.build_dir)
 
-def run_test(target='system-verilog', simulator='iverilog'):
+def run_test(ram_cfg, target='system-verilog', simulator='iverilog'):
     # compile pin list
     ios = [
-        'din0', m.In(m.Bits[WORD_SIZE]),
-        'dout0', m.Out(m.Bits[WORD_SIZE]),
-        'addr0', m.In(m.Bits[ceil(log2(NUM_WORDS))]),
+        'din0', m.In(m.Bits[ram_cfg.word_size]),
+        'dout0', m.Out(m.Bits[ram_cfg.word_size]),
+        'addr0', m.In(m.Bits[ceil(log2(ram_cfg.num_words))]),
         'csb0', m.BitIn,
         'web0', m.BitIn,
         'clk0', m.BitIn
@@ -77,7 +72,7 @@ def run_test(target='system-verilog', simulator='iverilog'):
         ]
 
     # declare circuit
-    dut = m.DeclareCircuit(OUTPUT_NAME, *ios)
+    dut = m.DeclareCircuit(ram_cfg.output_name, *ios)
 
     # instantiate the tester
     t = fault.Tester(dut, poke_delay_default=0)
@@ -127,8 +122,8 @@ def run_test(target='system-verilog', simulator='iverilog'):
     t.delay(25e-9)
 
     # generate test data
-    stim = [(k, fault.random_bv(WORD_SIZE))
-            for k in range(NUM_WORDS)]
+    stim = [(k, fault.random_bv(ram_cfg.word_size))
+            for k in range(ram_cfg.num_words)]
 
     # write data in a random order
     shuffle(stim)
@@ -144,18 +139,18 @@ def run_test(target='system-verilog', simulator='iverilog'):
     kwargs = {}
     kwargs['target'] = target
     kwargs['simulator'] = simulator
-    kwargs['directory'] = BUILD_DIR
-    # kwargs['disp_type'] = 'realtime'
+    kwargs['directory'] = ram_cfg.build_dir
+    kwargs['disp_type'] = 'realtime'
     if target in {'spice', 'verilog-ams'}:
-        kwargs['vsup'] = VDD
-        kwargs['model_paths'] = SPICE_FILES
+        kwargs['vsup'] = ram_cfg.vdd
+        kwargs['model_paths'] = ram_cfg.spice_files
         kwargs['bus_delim'] = '[]'
         kwargs['uic'] = True
     if target == 'system-verilog':
-        kwargs['ext_libs'] = VLOG_FILES
+        kwargs['ext_libs'] = ram_cfg.vlog_files
         kwargs['ext_model_file'] = True
     if target == 'verilog-ams':
-        kwargs['use_spice'] = [OUTPUT_NAME]
+        kwargs['use_spice'] = [ram_cfg.output_name]
 
     # run the test
     t.compile_and_run(**kwargs)
@@ -165,6 +160,10 @@ def main():
     parser = ArgumentParser()
     parser.add_argument('--target', type=str, default='system-verilog')
     parser.add_argument('--simulator', type=str, default=None)
+    parser.add_argument('--num_words', type=int, default=16)
+    parser.add_argument('--word_size', type=int, default=1)
+    parser.add_argument('--vdd', type=float, default=3.3)
+    parser.add_argument('--tech_name', type=str, default='scn4m_subm')
     args = parser.parse_args()
 
     # set defaults
@@ -176,12 +175,16 @@ def main():
         elif args.target == 'spice':
             args.simulator = 'ngspice'
 
+    # create the RAM configuration
+    ram_cfg = RamCfg(num_words=args.num_words, word_size=args.word_size,
+                     vdd=args.vdd, tech_name=args.tech_name)
+
     # build the OpenRAM design
-    build_design()
+    build_design(ram_cfg)
 
     # run the simulation
     t0 = time()
-    run_test(target=args.target, simulator=args.simulator)
+    run_test(ram_cfg, target=args.target, simulator=args.simulator)
     dt = time() - t0
 
     # report result
@@ -189,11 +192,10 @@ def main():
 ***********************************
 Target:    {args.target}
 Simulator  {args.simulator}
-No. words: {NUM_WORDS}
-Word size: {WORD_SIZE}
+No. words: {ram_cfg.num_words}
+Word size: {ram_cfg.word_size}
 Runtime:   {dt:0.3f} s
 ***********************************''')
 
 if __name__ == '__main__':
     main()
-
