@@ -1,6 +1,8 @@
 # general-purpose imports
 import os
 import subprocess
+from time import time
+from argparse import ArgumentParser
 from math import ceil, log2
 from random import shuffle
 from pathlib import Path
@@ -157,11 +159,40 @@ def run_test(target='system-verilog', simulator='iverilog'):
     # run the test
     t.compile_and_run(**kwargs)
 
-if __name__ == '__main__':
-    # build the design
+def main():
+    # parse command line arguments
+    parser = ArgumentParser()
+    parser.add_argument('--target', type=str, default='system-verilog')
+    parser.add_argument('--simulator', type=str, default=None)
+    args = parser.parse_args()
+
+    # set defaults
+    if args.simulator is None:
+        if args.target == 'system-verilog':
+            args.simulator = 'iverilog'
+        elif args.target == 'verilog-ams':
+            args.simulator = 'ncsim'
+        elif args.target == 'spice':
+            args.simulator = 'ngspice'
+
+    # build the OpenRAM design
     build_design()
 
-    # run simulations
-    # target, simulator = 'system-verilog', 'iverilog'
-    target, simulator = 'spice', 'ngspice'
-    run_test(target=target, simulator=simulator)
+    # run the simulation
+    t0 = time()
+    run_test(target=args.target, simulator=args.simulator)
+    dt = time() - t0
+
+    # report result
+    print(f'''\
+***********************************
+Target:    {args.target}
+Simulator  {args.simulator}
+No. words: {NUM_WORDS}
+Word size: {WORD_SIZE}
+Runtime:   {dt:0.3f} s
+***********************************''')
+
+if __name__ == '__main__':
+    main()
+
