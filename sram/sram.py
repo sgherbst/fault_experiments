@@ -1,24 +1,69 @@
-import magma as m
-import fault
+# general-purpose imports
+import os
+import subprocess
+from math import ceil, log2
 from random import shuffle
 from pathlib import Path
 
-# convenience variable
+# fault-specific imports
+import magma as m
+import fault
+
+# user-editable parameters
+NUM_WORDS = 16
+WORD_SIZE = 1
+VDD = 3.3
+TECH_NAME = 'scn4m_subm'
+OUTPUT_PATH = 'temp'
+OUTPUT_NAME = f'sram_{WORD_SIZE}_{NUM_WORDS}_{TECH_NAME}'
+# do not edit anything below this line...
+
+# file locations
 THIS_DIR = Path(__file__).resolve().parent
+BUILD_DIR = THIS_DIR / 'build'
+OPENRAM_HOME = Path(os.environ['OPENRAM_HOME'])
+OPENRAM_TECH = Path(os.environ['OPENRAM_TECH'])
+MODEL_DIR = OPENRAM_TECH / TECH_NAME / 'models' / 'nom'
 
 # define file locations
-SPICE_FILES = [THIS_DIR / 'nmos.sp',
-               THIS_DIR / 'pmos.sp',
-               THIS_DIR / 'sram_8_16_scn4m_subm.sp']
-VLOG_FILES = [THIS_DIR / 'sram_8_16_scn4m_subm.v']
+SPICE_FILES = [MODEL_DIR / 'nmos.sp',
+               MODEL_DIR / 'pmos.sp',
+               BUILD_DIR / OUTPUT_PATH / f'{OUTPUT_NAME}.sp']
+VLOG_FILES = [BUILD_DIR / OUTPUT_PATH / f'{OUTPUT_NAME}.v']
 
-def run_test(n_addr_bits=4, n_data_bits=8, vdd=3.3, target='system-verilog',
-             simulator='iverilog'):
+def build_design():
+    BUILD_DIR.mkdir(parents=True, exist_ok=True)
+
+    # generate file for OpenRAM
+    config_path = BUILD_DIR / 'myconfig.py'
+    with open(config_path, 'w') as f:
+        f.write(f'''\
+word_size = {WORD_SIZE}
+num_words = {NUM_WORDS}
+tech_name = "{TECH_NAME}"
+process_corners = ["TT"]
+supply_voltages = [ {VDD} ]
+temperatures = [ 25 ]
+output_path = "{OUTPUT_PATH}"
+output_name = "{OUTPUT_NAME}"
+drc_name = "magic"
+lvs_name = "netgen"
+pex_name = "magic"\
+''')
+
+    # call OpenRAM
+    cmd = []
+    cmd += ['python']
+    cmd += [str(OPENRAM_HOME / 'openram.py')]
+    cmd += [str(config_path.stem)]
+    subprocess.run(cmd, cwd=BUILD_DIR)
+
+def run_test(target='system-verilog', simulator='iverilog'):
     # compile pin list
     ios = [
-        'din0', m.In(m.Bits[n_data_bits]),
-        'dout0', m.Out(m.Bits[n_data_bits]),
-        'addr0', m.In(m.Bits[n_addr_bits]),
+        'din0', m.In(m.Bits[WORD_SIZE]),
+        'dout0', m.Out(m.Bits[WORD_SIZE]),
+        'addr0', m.In(m.Bits[ceil(log2(NUM_WORDS))]),
         'csb0', m.BitIn,
         'web0', m.BitIn,
         'clk0', m.BitIn
@@ -30,7 +75,7 @@ def run_test(n_addr_bits=4, n_data_bits=8, vdd=3.3, target='system-verilog',
         ]
 
     # declare circuit
-    dut = m.DeclareCircuit('sram_8_16_scn4m_subm', *ios)
+    dut = m.DeclareCircuit(OUTPUT_NAME, *ios)
 
     # instantiate the tester
     t = fault.Tester(dut, poke_delay_default=0)
@@ -80,8 +125,8 @@ def run_test(n_addr_bits=4, n_data_bits=8, vdd=3.3, target='system-verilog',
     t.delay(25e-9)
 
     # generate test data
-    stim = [(k, fault.random_bv(n_data_bits))
-            for k in range(1 << n_addr_bits)]
+    stim = [(k, fault.random_bv(WORD_SIZE))
+            for k in range(NUM_WORDS)]
 
     # write data in a random order
     shuffle(stim)
@@ -97,9 +142,9 @@ def run_test(n_addr_bits=4, n_data_bits=8, vdd=3.3, target='system-verilog',
     kwargs = {}
     kwargs['target'] = target
     kwargs['simulator'] = simulator
-    kwargs['disp_type'] = 'realtime'
+    # kwargs['disp_type'] = 'realtime'
     if target in {'spice', 'verilog-ams'}:
-        kwargs['vsup'] = vdd
+        kwargs['vsup'] = VDD
         kwargs['model_paths'] = SPICE_FILES
         kwargs['bus_delim'] = '[]'
         kwargs['uic'] = True
@@ -107,10 +152,16 @@ def run_test(n_addr_bits=4, n_data_bits=8, vdd=3.3, target='system-verilog',
         kwargs['ext_libs'] = VLOG_FILES
         kwargs['ext_model_file'] = True
     if target == 'verilog-ams':
-        kwargs['use_spice'] = 'sram_8_16_scn4m_subm'
+        kwargs['use_spice'] = [OUTPUT_NAME]
 
     # run the test
     t.compile_and_run(**kwargs)
 
 if __name__ == '__main__':
-    run_test(target='spice', simulator='ngspice')
+    # build the design
+    build_design()
+
+    # run simulations
+    # target, simulator = 'system-verilog', 'iverilog'
+    target, simulator = 'spice', 'ngspice'
+    run_test(target=target, simulator=simulator)
