@@ -12,10 +12,17 @@ First install OpenRAM if you have not already:
 ```
 The two environment variables may be set in **.profile**, **.bashrc**, etc. for convenience.
 
-Then clone this project:
+Then clone this project and ``cd`` into this directory:
 ```shell
 > git clone https://github.com/sgherbst/fault_experiments.git
-> cd fault_experiments
+> cd fault_experiments/sram
+```
+
+We recommend running this test in a ``conda`` environment, which you can set up like this:
+```shell
+> conda create -n fault_experiments python ngspice iverilog
+> conda activate fault_experiments
+> pip install fault mantle
 ```
 
 # Usage
