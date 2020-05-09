@@ -147,6 +147,7 @@ def run_test(ram_cfg, target='system-verilog', simulator='iverilog'):
         kwargs['vsup'] = ram_cfg.vdd
         kwargs['model_paths'] = ram_cfg.spice_files
         kwargs['bus_delim'] = '[]'
+    if target == 'spice':
         kwargs['uic'] = True
     if target == 'system-verilog':
         kwargs['ext_libs'] = ram_cfg.vlog_files
