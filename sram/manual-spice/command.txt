@@ -1,0 +1,1 @@
+ngspice -b /home/sherbst/Code/fault_experiments/sram/fault/build/sram_2_16_scn4m_subm_tb.sp -r /home/sherbst/Code/fault_experiments/sram/fault/build/out.raw
