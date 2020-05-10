@@ -41,7 +41,7 @@ def main():
     parser.add_argument('--simulator', type=str, default=None, help='Simulator to use.  Options are "ncsim", "vcs", "iverilog", "vivado", "ngspice", "hspice", and "spectre".  Note that not all target/simulator pairs are valid.')
     parser.add_argument('--num_words', type=int, default=16, help='Number of words in the SRAM array.')
     parser.add_argument('--word_size', type=int, default=2, help='Number of bits in each SRAM word.')
-    parser.add_argument('--vdd', type=float, default=3.3, help='VDD voltage.')
+    parser.add_argument('--vdd', type=float, default=5.0, help='VDD voltage.')
     parser.add_argument('--clk_per', type=float, default=10e-9, help='Period of the clock waveform used in testing (seconds).')
     parser.add_argument('--tech_name', type=str, default='scn4m_subm', help='Name of the process technology.')
     parser.add_argument('--manual', action='store_true')
@@ -72,7 +72,12 @@ def main():
 
     # determine the run directory
     if args.manual:
-        rundir = this_dir / f'manual-{args.target}'
+        if args.target in {'system-verilog', 'verilog-ams'}:
+            rundir = this_dir / f'manual-sv-vams'
+        elif args.target in {'spice'}:
+            rundir = this_dir / f'manual-spice'
+        else:
+            raise Exception(f'Unknown target: {args.target}')
     else:
         rundir = 'fault'
 

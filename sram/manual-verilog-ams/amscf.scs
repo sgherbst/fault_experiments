@@ -1,7 +1,0 @@
-tranSweep tran stop=1s
-amsd {
-    ie vsup=3.3 rout=1
-    config cell=sram_2_16_scn4m_subm use=spice
-    portmap subckt=sram_2_16_scn4m_subm autobus=yes busdelim="[]"
-
-}

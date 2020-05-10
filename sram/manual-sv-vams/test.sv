@@ -3,7 +3,7 @@
 module test;
     // I/O
     logic [((`WORD_SIZE)-1):0] din0;
-    wire [((`WORD_SIZE)-1):0] dout0;
+    logic [((`WORD_SIZE)-1):0] dout0;
     logic [($clog2(`NUM_WORDS)-1):0] addr0;
     logic csb0;
     logic web0;
@@ -11,16 +11,42 @@ module test;
     logic vdd;
     logic gnd;
 
+    // Must connect to DUT with wires for Verilog-AMS
+
+    wire [((`WORD_SIZE)-1):0] _din0;
+    assign _din0 = din0;
+
+    wire [((`WORD_SIZE)-1):0] _dout0;
+    assign dout0 = _dout0;
+
+    wire [($clog2(`NUM_WORDS)-1):0] _addr0;
+    assign _addr0 = addr0;
+
+    wire _csb0;
+    assign _csb0 = csb0;
+
+    wire _web0;
+    assign _web0 = web0;
+
+    wire _clk0;
+    assign _clk0 = clk0;
+
+    wire _vdd;
+    assign _vdd = vdd;
+
+    wire _gnd;
+    assign _gnd = gnd;
+
     `MODULE_NAME dut (
-        .din0(din0),
-        .dout0(dout0),
-        .addr0(addr0),
-        .csb0(csb0),
-        .web0(web0),
-        .clk0(clk0)
+        .din0(_din0),
+        .dout0(_dout0),
+        .addr0(_addr0),
+        .csb0(_csb0),
+        .web0(_web0),
+        .clk0(_clk0)
         `ifdef VAMS
-            , .vdd(vdd)
-            , .gnd(gnd)
+            , .vdd(_vdd)
+            , .gnd(_gnd)
         `endif
     );
 
@@ -127,7 +153,7 @@ module test;
 
         // check data in a random order
         for (i=(`NUM_WORDS)-1; i>=1; i=i-1) begin
-            check(indices[i], write_data[indices[i]])
+            check(indices[i], write_data[indices[i]]);
         end
 
         $finish;
