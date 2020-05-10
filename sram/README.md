@@ -22,7 +22,7 @@ We recommend running this test in a ``conda`` environment, which you can set up 
 ```shell
 > conda create -n fault_experiments python ngspice iverilog
 > conda activate fault_experiments
-> pip install fault mantle
+> pip install fault mantle DeCiDa
 ```
 
 # Usage
@@ -43,6 +43,8 @@ Word size: 1
 Runtime:   0.145 s
 ***********************************
 ```
+
+If you pass the ``--manual`` flag, the test will be run using a hand-written implementation of the testbench.  These implementations were created to explore the productivity benefits of using **fault**.
 
 # Configuration
 
