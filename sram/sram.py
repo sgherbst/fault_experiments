@@ -92,8 +92,11 @@ def main():
 
     # run the simulation
     t0 = time()
-    subprocess.run(cmd, cwd=rundir)
+    result = subprocess.run(cmd, cwd=rundir)
     dt = time() - t0
+
+    if result.returncode != 0:
+        raise Exception('Command failed.')
 
     # report result
     print(f'''\

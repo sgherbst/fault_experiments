@@ -1,2 +1,0 @@
-Running command: iverilog -osram_2_16_scn4m_subm_tb -Y.v -Y.sv -y/home/sherbst/Code/fault_experiments/sram/build/temp -g2012 /home/sherbst/Code/fault_experiments/sram/fault/build/sram_2_16_scn4m_subm_tb.sv -s sram_2_16_scn4m_subm_tb
-Running command: vvp -N sram_2_16_scn4m_subm_tb
